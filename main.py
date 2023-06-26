@@ -44,8 +44,17 @@ df['L4'] = find_fractal(df['L3'], method='low')
 mc = mpf.make_marketcolors(up='r', down='g', inherit=True)
 s = mpf.make_mpf_style(marketcolors=mc)
 
+# 我们可以使用zip和tolist将其转化为坐标列表
+G3_coords = list(zip(df['H3'].dropna().index.tolist(), df['H3'].dropna().values.tolist()))
+L3_coords = list(zip(df['L3'].dropna().index.tolist(), df['L3'].dropna().values.tolist()))
+
+# 为了满足alines的格式，我们将每个坐标点成对组合，形成线段
+alines = [G3_coords, L3_coords]
+
+apd = mpf.make_addplot(df['H3'],type='scatter')
+
 # 绘制K线图
-fig, axes = mpf.plot(df, type='candle', style=s, returnfig=True)
+fig, axes = mpf.plot(df, type='candle', style=s, returnfig=True, alines=dict(alines=alines), addplot=apd)
 
 # 对于每一个G1High的位置，添加一个红色的矩形框
 for i in range(1, len(df) - 1):
