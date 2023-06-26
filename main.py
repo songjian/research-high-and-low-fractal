@@ -9,25 +9,36 @@ import mplfinance as mpf
 import numpy as np
 import matplotlib.patches as patches
 
+def find_fractal(s: pd.Series, method : str = 'high'):
+    '''
+    找到分型点
+    :param s: pd.Series
+    :param method: str
+    :return: pd.Series
+    '''
+    s = s.dropna()
+    if method == 'high':
+        high = (s.shift(1) < s) & (s.shift(-1) < s)
+        ret = pd.Series(np.where(high, s, np.nan), index=s.index)
+    elif method == 'low':
+        low = (s.shift(1) > s) & (s.shift(-1) > s)
+        ret = pd.Series(np.where(low, s, np.nan), index=s.index)
+    return ret.dropna()
+
 # 从data目录下读取SH000300.csv文件，日期列作为索引
 df = pd.read_csv('data/SH000300.csv', index_col='日期', parse_dates=True)
 
 df = df.rename(columns={'开盘': 'Open', '最高': 'High', '最低': 'Low', '收盘': 'Close'})
 
-# 单独保存收盘列
-close = df['Close']
-
-# 计算G1High，如果收盘价大于前一天的收盘价和后一天的收盘价，则为G1High，G1High为True，否则为False
-G1High = (close.shift(1) < close) & (close.shift(-1) < close)
-
-# 创建一个新列来存储G1High的值，如果G1High为True，那么这个新列的值就是收盘价，否则为np.nan
-df['G1High'] = np.where(G1High, df['Close'], np.nan)
-
-# 计算L1Low，如果收盘价小于前一天的收盘价和后一天的收盘价，则为L1Low，L1Low为True，否则为False
-L1Low = (close.shift(1) > close) & (close.shift(-1) > close)
-
-# 创建一个新列来存储L1Low的值，如果L1Low为True，那么这个新列的值就是收盘价，否则为np.nan
-df['L1Low'] = np.where(L1Low, df['Close'], np.nan)
+# 计算分型点
+df['H1'] = find_fractal(df['Close'], method='high')
+df['H2'] = find_fractal(df['H1'], method='high')
+df['H3'] = find_fractal(df['H2'], method='high')
+df['H4'] = find_fractal(df['H3'], method='high')
+df['L1'] = find_fractal(df['Close'], method='low')
+df['L2'] = find_fractal(df['L1'], method='low')
+df['L3'] = find_fractal(df['L2'], method='low')
+df['L4'] = find_fractal(df['L3'], method='low')
 
 # 创建一个新的样式，上涨的K线为红色，下跌的K线为绿色
 mc = mpf.make_marketcolors(up='r', down='g', inherit=True)
@@ -38,7 +49,11 @@ fig, axes = mpf.plot(df, type='candle', style=s, returnfig=True)
 
 # 对于每一个G1High的位置，添加一个红色的矩形框
 for i in range(1, len(df) - 1):
-    if G1High.iloc[i]:
+    if df['H1'].iloc[i]:
+        # 如果H1为NaN，则跳过
+        if np.isnan(df['H1'].iloc[i]):
+            continue
+
         # 计算矩形框的位置和大小
         low = min(df['Low'].iloc[i - 1:i + 1])
         high = max(df['High'].iloc[i - 1:i + 1])
@@ -49,7 +64,11 @@ for i in range(1, len(df) - 1):
 
 # 对于每一个L1Low的位置，添加一个绿色的矩形框
 for i in range(1, len(df) - 1):
-    if L1Low.iloc[i]:
+    if df['L1'].iloc[i]:
+        # 如果L1为NaN，则跳过
+        if np.isnan(df['L1'].iloc[i]):
+            continue
+
         # 计算矩形框的位置和大小
         low = min(df['Low'].iloc[i - 1:i + 1])
         high = max(df['High'].iloc[i - 1:i + 1])
@@ -57,6 +76,7 @@ for i in range(1, len(df) - 1):
         
         # 添加矩形框到图中
         axes[0].add_patch(rect)
+
 
 # 显示图
 mpf.show()
